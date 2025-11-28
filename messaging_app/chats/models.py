@@ -13,6 +13,7 @@ class User(AbstractUser):
     first_name = models.CharField(max_length=150)
     last_name = models.CharField(max_length=150)
     email = models.EmailField(unique=True)
+    password = models.CharField(max_length=128)
     phone_number = models.CharField(max_length=15, null=True, blank=True)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES)
     created_at = models.DateTimeField(auto_now_add=True)
