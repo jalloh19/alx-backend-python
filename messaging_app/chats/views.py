@@ -72,6 +72,21 @@ class MessageViewSet(viewsets.ModelViewSet):
         """
         Send a new message to an existing conversation.
         """
+        conversation_id = request.data.get('conversation')
+        
+        # Validate that conversation exists and user is a participant
+        if conversation_id:
+            try:
+                conversation = Conversation.objects.get(
+                    conversation_id=conversation_id,
+                    participants=request.user
+                )
+            except Conversation.DoesNotExist:
+                return Response(
+                    {'error': 'Conversation not found or access denied'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
