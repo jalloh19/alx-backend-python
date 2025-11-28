@@ -3,26 +3,51 @@ from rest_framework import permissions
 
 class IsParticipantOfConversation(permissions.BasePermission):
     """
-    Permission to ensure users can only access conversations they're part of.
+    Permission to ensure only authenticated users who are participants
+    can access, send, view, update, and delete messages in a conversation.
     """
+    
+    def has_permission(self, request, view):
+        """
+        Check if user is authenticated before accessing any conversation.
+        """
+        return request.user and request.user.is_authenticated
     
     def has_object_permission(self, request, view, obj):
         """
         Check if the user is a participant of the conversation.
+        Only participants can view, send, update, and delete messages.
         """
+        # Ensure user is authenticated
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        # Check if user is a participant in the conversation
         return request.user in obj.participants.all()
 
 
 class IsMessageSenderOrConversationParticipant(permissions.BasePermission):
     """
-    Permission to ensure users can only access messages from conversations
-    they're part of.
+    Permission to ensure only authenticated users who are participants
+    can access messages. Participants can send, view, update, and delete
+    messages in their conversations.
     """
+    
+    def has_permission(self, request, view):
+        """
+        Check if user is authenticated before accessing any message.
+        """
+        return request.user and request.user.is_authenticated
     
     def has_object_permission(self, request, view, obj):
         """
         Check if user is the sender or a participant in the conversation.
+        Only participants can view, send, update, and delete messages.
         """
+        # Ensure user is authenticated
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
         # Check if user is the sender
         if obj.sender == request.user:
             return True
