@@ -33,6 +33,13 @@ class ConversationViewSet(viewsets.ModelViewSet):
         """
         Create a new conversation with participants.
         """
+        # Ensure user is authenticated
+        if not request.user.is_authenticated:
+            return Response(
+                {'error': 'Authentication required'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         conversation = serializer.save()
@@ -78,16 +85,28 @@ class MessageViewSet(viewsets.ModelViewSet):
         """
         conversation_id = request.data.get('conversation')
         
+        # Ensure user is authenticated
+        if not request.user.is_authenticated:
+            return Response(
+                {'error': 'Authentication required'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
         # Validate that conversation exists and user is a participant
         if conversation_id:
             try:
                 conversation = Conversation.objects.get(
-                    conversation_id=conversation_id,
-                    participants=request.user
+                    conversation_id=conversation_id
                 )
+                # Check if user is a participant
+                if request.user not in conversation.participants.all():
+                    return Response(
+                        {'error': 'Only participants can send messages'},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
             except Conversation.DoesNotExist:
                 return Response(
-                    {'error': 'Conversation not found or access denied'},
+                    {'error': 'Conversation not found'},
                     status=status.HTTP_404_NOT_FOUND
                 )
         

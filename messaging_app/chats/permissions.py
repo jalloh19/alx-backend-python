@@ -23,7 +23,14 @@ class IsParticipantOfConversation(permissions.BasePermission):
             return False
         
         # Check if user is a participant in the conversation
-        return request.user in obj.participants.all()
+        is_participant = request.user in obj.participants.all()
+        
+        # For write operations (PUT, PATCH, DELETE), verify participation
+        if request.method in ['PUT', 'PATCH', 'DELETE']:
+            return is_participant
+        
+        # For read operations (GET), verify participation
+        return is_participant
 
 
 class IsMessageSenderOrConversationParticipant(permissions.BasePermission):
@@ -48,12 +55,20 @@ class IsMessageSenderOrConversationParticipant(permissions.BasePermission):
         if not request.user or not request.user.is_authenticated:
             return False
         
-        # Check if user is the sender
+        # Check if user is a participant in the conversation
+        is_participant = request.user in obj.conversation.participants.all()
+        
+        # For write operations (PUT, PATCH, DELETE)
+        if request.method in ['PUT', 'PATCH', 'DELETE']:
+            # Only the sender can update/delete their own messages
+            # But they must also be a participant
+            return obj.sender == request.user and is_participant
+        
+        # For read operations (GET), check if user is sender or participant
         if obj.sender == request.user:
             return True
         
-        # Check if user is a participant in the conversation
-        return request.user in obj.conversation.participants.all()
+        return is_participant
 
 
 class IsOwnerOrReadOnly(permissions.BasePermission):
