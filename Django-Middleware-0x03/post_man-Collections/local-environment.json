@@ -1,0 +1,32 @@
+{
+  "id": "local-environment",
+  "name": "Local Development",
+  "values": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000/api",
+      "enabled": true
+    },
+    {
+      "key": "username",
+      "value": "alice",
+      "enabled": true
+    },
+    {
+      "key": "password",
+      "value": "password123",
+      "enabled": true
+    },
+    {
+      "key": "username2",
+      "value": "bob",
+      "enabled": true
+    },
+    {
+      "key": "password2",
+      "value": "password123",
+      "enabled": true
+    }
+  ],
+  "_postman_variable_scope": "environment"
+}
