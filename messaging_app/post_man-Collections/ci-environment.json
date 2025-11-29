@@ -1,0 +1,32 @@
+{
+  "id": "ci-environment",
+  "name": "CI Environment",
+  "values": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000/api",
+      "enabled": true
+    },
+    {
+      "key": "username",
+      "value": "testuser1",
+      "enabled": true
+    },
+    {
+      "key": "password",
+      "value": "testpass123",
+      "enabled": true
+    },
+    {
+      "key": "username2",
+      "value": "testuser2",
+      "enabled": true
+    },
+    {
+      "key": "password2",
+      "value": "testpass123",
+      "enabled": true
+    }
+  ],
+  "_postman_variable_scope": "environment"
+}

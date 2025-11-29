@@ -2,22 +2,63 @@
 Models for messaging and notifications system.
 
 This module defines:
-- Message: Messages sent between users
+- Message: Messages sent between users with threading and read status
 - Notification: Notifications created automatically when messages are received
+- MessageHistory: History of message edits
 """
 from django.db import models
 from django.contrib.auth.models import User
+
+
+class UnreadMessagesManager(models.Manager):
+    """
+    Custom manager for retrieving unread messages for a specific user.
+    
+    This manager provides an optimized method to fetch only unread messages
+    for the receiver, using .only() to retrieve minimal fields.
+    """
+    
+    def unread_for_user(self, user):
+        """
+        Get all unread messages for a specific user.
+        
+        Args:
+            user: The User instance to get unread messages for
+            
+        Returns:
+            QuerySet of unread Message objects with optimized field selection
+        """
+        return self.filter(
+            receiver=user,
+            read=False
+        ).select_related(
+            'sender',
+            'receiver'
+        ).only(
+            'id',
+            'sender__username',
+            'receiver__username',
+            'content',
+            'timestamp',
+            'read'
+        ).order_by('-timestamp')
 
 
 class Message(models.Model):
     """
     Message model representing a message sent from one user to another.
     
+    Supports threaded conversations via self-referential parent_message field
+    and tracks read status for each message.
+    
     Fields:
         sender: User who sent the message
         receiver: User who receives the message
         content: The message text content
         timestamp: When the message was created
+        edited: Whether the message has been edited
+        read: Whether the receiver has read the message
+        parent_message: Reference to parent message for threaded replies
     """
     sender = models.ForeignKey(
         User,
@@ -42,6 +83,22 @@ class Message(models.Model):
         default=False,
         help_text="Whether the message has been edited"
     )
+    read = models.BooleanField(
+        default=False,
+        help_text="Whether the receiver has read the message"
+    )
+    parent_message = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='replies',
+        help_text="Parent message if this is a reply"
+    )
+    
+    # Custom managers
+    objects = models.Manager()  # Default manager
+    unread = UnreadMessagesManager()  # Custom manager for unread messages
 
     class Meta:
         ordering = ['-timestamp']
@@ -50,11 +107,66 @@ class Message(models.Model):
         indexes = [
             models.Index(fields=['-timestamp']),
             models.Index(fields=['receiver', '-timestamp']),
+            models.Index(fields=['receiver', 'read']),
+            models.Index(fields=['parent_message', '-timestamp']),
         ]
 
     def __str__(self):
         return (f"Message from {self.sender.username} to "
                 f"{self.receiver.username} at {self.timestamp}")
+    
+    def get_thread(self):
+        """
+        Get all messages in this thread (message and all its replies).
+        
+        Uses prefetch_related to optimize retrieval of nested replies.
+        
+        Returns:
+            QuerySet of all messages in the thread
+        """
+        if self.parent_message:
+            # If this is a reply, get the root message's thread
+            return self.parent_message.get_thread()
+        
+        # This is the root message, get all replies recursively
+        return Message.objects.filter(
+            models.Q(id=self.id) |
+            models.Q(parent_message=self) |
+            models.Q(parent_message__parent_message=self)
+        ).select_related(
+            'sender',
+            'receiver',
+            'parent_message'
+        ).prefetch_related(
+            'replies',
+            'replies__replies'
+        ).order_by('timestamp')
+    
+    def get_all_replies(self):
+        """
+        Recursively get all direct and nested replies to this message.
+        
+        Returns:
+            QuerySet of all reply messages
+        """
+        return Message.objects.filter(
+            parent_message=self
+        ).select_related(
+            'sender',
+            'receiver'
+        ).prefetch_related(
+            'replies'
+        ).order_by('timestamp')
+    
+    def is_reply(self):
+        """Check if this message is a reply to another message."""
+        return self.parent_message is not None
+    
+    def mark_as_read(self):
+        """Mark this message as read."""
+        if not self.read:
+            self.read = True
+            self.save(update_fields=['read'])
 
 
 class MessageHistory(models.Model):

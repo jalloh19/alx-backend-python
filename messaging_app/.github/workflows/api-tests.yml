@@ -1,0 +1,100 @@
+name: API Tests with Newman
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_messaging_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run migrations
+      working-directory: ./messaging_app
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_messaging_db
+      run: |
+        python manage.py migrate
+
+    - name: Create test users
+      working-directory: ./messaging_app
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_messaging_db
+      run: |
+        python manage.py shell << EOF
+        from chats.models import User
+        User.objects.create_user(username='testuser1', password='testpass123', email='test1@example.com', first_name='Test', last_name='User1', role='guest')
+        User.objects.create_user(username='testuser2', password='testpass123', email='test2@example.com', first_name='Test', last_name='User2', role='host')
+        print("Test users created")
+        EOF
+
+    - name: Start Django server
+      working-directory: ./messaging_app
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_messaging_db
+      run: |
+        python manage.py runserver 0.0.0.0:8000 &
+        sleep 5
+
+    - name: Install Newman
+      run: |
+        npm install -g newman
+        npm install -g newman-reporter-htmlextra
+
+    - name: Run Postman tests
+      run: |
+        newman run messaging_app/post_man-Collections/Messaging_App_API_Tests.postman_collection.json \
+          --environment messaging_app/post_man-Collections/ci-environment.json \
+          --reporters cli,htmlextra \
+          --reporter-htmlextra-export newman-report.html \
+          --bail
+
+    - name: Upload test report
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: newman-test-report
+        path: newman-report.html
+
+    - name: Comment PR with test results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '✅ API tests passed! Check the artifacts for detailed report.'
+          });
