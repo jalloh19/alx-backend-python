@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Messages</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        h2 {
+            color: #007bff;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+            margin-top: 30px;
+        }
+        .message-list {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        .message-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+            transition: background-color 0.2s;
+        }
+        .message-item:last-child {
+            border-bottom: none;
+        }
+        .message-item:hover {
+            background-color: #f8f9fa;
+        }
+        .message-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .message-user {
+            font-weight: bold;
+            color: #333;
+        }
+        .message-time {
+            color: #999;
+            font-size: 13px;
+        }
+        .message-content {
+            color: #555;
+            margin-bottom: 8px;
+        }
+        .message-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .badge-edited {
+            background: #ffc107;
+            color: #000;
+        }
+        .history-link {
+            color: #007bff;
+            text-decoration: none;
+            font-size: 13px;
+        }
+        .history-link:hover {
+            text-decoration: underline;
+        }
+        .no-messages {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+            background: white;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>My Messages</h1>
+    
+    <h2>Sent Messages</h2>
+    <div class="message-list">
+        {% if sent_messages %}
+            {% for message in sent_messages %}
+            <div class="message-item">
+                <div class="message-meta">
+                    <span class="message-user">To: {{ message.receiver.username }}</span>
+                    <span class="message-time">{{ message.timestamp|date:"Y-m-d H:i:s" }}</span>
+                </div>
+                <div class="message-content">
+                    {{ message.content|truncatewords:20 }}
+                </div>
+                <div class="message-actions">
+                    {% if message.edited %}
+                        <span class="badge badge-edited">EDITED</span>
+                        <a href="{% url 'messaging:message_history' message.id %}" class="history-link">
+                            View Edit History ({{ message.history.count }} edit{{ message.history.count|pluralize }})
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-messages">
+                <p>You haven't sent any messages yet.</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <h2>Received Messages</h2>
+    <div class="message-list">
+        {% if received_messages %}
+            {% for message in received_messages %}
+            <div class="message-item">
+                <div class="message-meta">
+                    <span class="message-user">From: {{ message.sender.username }}</span>
+                    <span class="message-time">{{ message.timestamp|date:"Y-m-d H:i:s" }}</span>
+                </div>
+                <div class="message-content">
+                    {{ message.content|truncatewords:20 }}
+                </div>
+                <div class="message-actions">
+                    {% if message.edited %}
+                        <span class="badge badge-edited">EDITED</span>
+                        <a href="{% url 'messaging:message_history' message.id %}" class="history-link">
+                            View Edit History ({{ message.history.count }} edit{{ message.history.count|pluralize }})
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-messages">
+                <p>You haven't received any messages yet.</p>
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>

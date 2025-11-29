@@ -38,6 +38,10 @@ class Message(models.Model):
         auto_now_add=True,
         help_text="When the message was created"
     )
+    edited = models.BooleanField(
+        default=False,
+        help_text="Whether the message has been edited"
+    )
 
     class Meta:
         ordering = ['-timestamp']
@@ -49,7 +53,54 @@ class Message(models.Model):
         ]
 
     def __str__(self):
-        return f"Message from {self.sender.username} to {self.receiver.username} at {self.timestamp}"
+        return (f"Message from {self.sender.username} to "
+                f"{self.receiver.username} at {self.timestamp}")
+
+
+class MessageHistory(models.Model):
+    """
+    MessageHistory model for storing previous versions of edited messages.
+    
+    Automatically created via pre_save signal when a message is edited.
+    
+    Fields:
+        message: The message that was edited
+        old_content: The content before the edit
+        edited_at: When the edit occurred
+        edited_by: User who made the edit
+    """
+    message = models.ForeignKey(
+        Message,
+        on_delete=models.CASCADE,
+        related_name='history',
+        help_text="The message that was edited"
+    )
+    old_content = models.TextField(
+        help_text="The content before the edit"
+    )
+    edited_at = models.DateTimeField(
+        auto_now_add=True,
+        help_text="When the edit occurred"
+    )
+    edited_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='message_edits',
+        help_text="User who made the edit"
+    )
+
+    class Meta:
+        ordering = ['-edited_at']
+        verbose_name = 'Message History'
+        verbose_name_plural = 'Message Histories'
+        indexes = [
+            models.Index(fields=['message', '-edited_at']),
+        ]
+
+    def __str__(self):
+        return (f"Edit of message {self.message.id} at "
+                f"{self.edited_at.strftime('%Y-%m-%d %H:%M:%S')}")
 
 
 class Notification(models.Model):
@@ -96,7 +147,9 @@ class Notification(models.Model):
 
     def __str__(self):
         status = "read" if self.is_read else "unread"
-        return f"Notification for {self.user.username}: New message from {self.message.sender.username} ({status})"
+        return (f"Notification for {self.user.username}: "
+                f"New message from {self.message.sender.username} "
+                f"({status})")
 
     def mark_as_read(self):
         """Mark this notification as read."""
