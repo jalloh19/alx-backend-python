@@ -5,7 +5,7 @@ This module contains signal handlers that automatically create
 notifications when certain events occur (e.g., new messages) and
 clean up related data when users are deleted.
 """
-from django.db.models.signals import post_save, pre_save, post_delete
+from django.db.models.signals import post_save, pre_save, pre_delete
 from django.dispatch import receiver
 from django.contrib.auth.models import User
 from .models import Message, Notification, MessageHistory
@@ -91,15 +91,14 @@ def log_message_edit(sender, instance, **kwargs):
             pass
 
 
-@receiver(post_delete, sender=User)
+@receiver(pre_delete, sender=User)
 def cleanup_user_data(sender, instance, **kwargs):
     """
     Signal handler that cleans up user-related data when a user is deleted.
     
-    This function is triggered after a User instance is deleted.
-    It ensures all related messages, notifications, and message histories
-    are properly cleaned up. While CASCADE handles most deletions, this
-    signal provides logging and handles any edge cases.
+    This function is triggered before a User instance is deleted.
+    It explicitly deletes all related messages, notifications, and message
+    histories associated with the user.
     
     Args:
         sender: The model class (User)
@@ -108,26 +107,34 @@ def cleanup_user_data(sender, instance, **kwargs):
     
     Flow:
         1. User deletion is initiated
-        2. post_delete signal is triggered
-        3. Django CASCADE deletes related objects automatically:
+        2. pre_delete signal is triggered
+        3. This handler explicitly deletes:
            - Messages (where user is sender or receiver)
            - Notifications (where user is the recipient)
-           - MessageHistory (where user is editor - SET_NULL)
-        4. This handler logs the cleanup for audit purposes
-    
-    Note:
-        The actual deletion is handled by Django's CASCADE behavior
-        defined in the ForeignKey relationships. This signal provides
-        logging and can be extended for custom cleanup logic.
+           - MessageHistory (where user is editor)
+        4. Logs the cleanup for audit purposes
     """
     username = instance.username
     
-    # Count what was deleted (for logging purposes)
-    # Note: These queries won't find anything because CASCADE already
-    # deleted them, but we log the cleanup for audit purposes
+    # Delete all messages where user is sender or receiver
+    messages_deleted = Message.objects.filter(
+        sender=instance
+    ).delete()[0] + Message.objects.filter(
+        receiver=instance
+    ).delete()[0]
+    
+    # Delete all notifications for the user
+    notifications_deleted = Notification.objects.filter(
+        user=instance
+    ).delete()[0]
+    
+    # Delete message histories where user was the editor
+    histories_deleted = MessageHistory.objects.filter(
+        edited_by=instance
+    ).delete()[0]
     
     print(f"🗑️  User deletion: Cleaning up data for '{username}'")
-    print("   - Messages sent/received: Deleted via CASCADE")
-    print("   - Notifications: Deleted via CASCADE")
-    print("   - Message edit history: Updated via SET_NULL")
+    print(f"   - Messages deleted: {messages_deleted}")
+    print(f"   - Notifications deleted: {notifications_deleted}")
+    print(f"   - Message histories deleted: {histories_deleted}")
     print(f"✅ User '{username}' and all related data cleaned up successfully")
