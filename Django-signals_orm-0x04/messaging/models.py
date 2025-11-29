@@ -8,40 +8,7 @@ This module defines:
 """
 from django.db import models
 from django.contrib.auth.models import User
-
-
-class UnreadMessagesManager(models.Manager):
-    """
-    Custom manager for retrieving unread messages for a specific user.
-    
-    This manager provides an optimized method to fetch only unread messages
-    for the receiver, using .only() to retrieve minimal fields.
-    """
-    
-    def unread_for_user(self, user):
-        """
-        Get all unread messages for a specific user.
-        
-        Args:
-            user: The User instance to get unread messages for
-            
-        Returns:
-            QuerySet of unread Message objects with optimized field selection
-        """
-        return self.filter(
-            receiver=user,
-            read=False
-        ).select_related(
-            'sender',
-            'receiver'
-        ).only(
-            'id',
-            'sender__username',
-            'receiver__username',
-            'content',
-            'timestamp',
-            'read'
-        ).order_by('-timestamp')
+from .managers import UnreadMessagesManager
 
 
 class Message(models.Model):
