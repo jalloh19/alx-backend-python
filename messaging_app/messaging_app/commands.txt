@@ -1,0 +1,5 @@
+# Enable NGINX Ingress controller in Minikube
+minikube addons enable ingress
+
+# Apply the Ingress configuration
+kubectl apply -f ingress.yaml

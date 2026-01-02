@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+log() {
+  printf "[kubctl-0x03] %s\n" "$*"
+}
+
+log "Applying updated blue_deployment.yaml (triggers rolling update)..."
+kubectl apply -f blue_deployment.yaml
+
+log "Starting continuous curl requests in background to test for downtime..."
+# Port-forward to the service in the background
+kubectl port-forward service/messaging-app-service 8000:8000 >/dev/null 2>&1 &
+PF_PID=$!
+trap "kill $PF_PID 2>/dev/null || true" EXIT
+
+sleep 3
+
+# Send continuous requests in background and count successes/failures
+REQUESTS_LOG=$(mktemp)
+(
+  for i in $(seq 1 30); do
+    if curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/ 2>/dev/null | grep -qE "^[23]"; then
+      echo "OK"
+    else
+      echo "FAIL"
+    fi
+    sleep 1
+  done
+) > "$REQUESTS_LOG" &
+CURL_PID=$!
+
+log "Monitoring rolling update progress..."
+kubectl rollout status deployment/messaging-app-blue
+
+log "Waiting for curl test to complete..."
+wait $CURL_PID || true
+
+SUCCESS_COUNT=$(grep -c "OK" "$REQUESTS_LOG" || echo 0)
+FAIL_COUNT=$(grep -c "FAIL" "$REQUESTS_LOG" || echo 0)
+log "Curl test results: $SUCCESS_COUNT successful, $FAIL_COUNT failed out of 30 requests."
+
+if [ "$FAIL_COUNT" -eq 0 ]; then
+  log "No downtime detected during rolling update!"
+else
+  log "Some requests failed during rolling update (expected if pods were restarting)."
+fi
+
+rm -f "$REQUESTS_LOG"
+
+log "Verifying rolling update is complete - checking current pods..."
+kubectl get pods -l app=messaging-app,version=blue
+
+log "Describing deployment to confirm image version..."
+kubectl get deployment messaging-app-blue -o jsonpath='{.spec.template.spec.containers[0].image}'
+echo ""
+
+log "Done."

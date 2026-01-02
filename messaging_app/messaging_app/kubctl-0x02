@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+log() {
+  printf "[kubctl-0x02] %s\n" "$*"
+}
+
+log "Deploying Blue version..."
+kubectl apply -f blue_deployment.yaml
+
+log "Deploying Green version..."
+kubectl apply -f green_deployment.yaml
+
+log "Applying service configuration..."
+kubectl apply -f kubeservice.yaml
+
+log "Waiting for Blue deployment to be ready..."
+kubectl rollout status deployment/messaging-app-blue --timeout=120s || true
+
+log "Waiting for Green deployment to be ready..."
+kubectl rollout status deployment/messaging-app-green --timeout=120s || true
+
+log "Listing all pods..."
+kubectl get pods -l app=messaging-app
+
+log "Checking logs for Blue deployment pods..."
+BLUE_POD=$(kubectl get pods -l app=messaging-app,version=blue -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+if [ -n "$BLUE_POD" ]; then
+  kubectl logs "$BLUE_POD" --tail=20 || echo "Could not fetch logs for blue pod."
+else
+  log "No blue pods found."
+fi
+
+log "Checking logs for Green deployment pods..."
+GREEN_POD=$(kubectl get pods -l app=messaging-app,version=green -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+if [ -n "$GREEN_POD" ]; then
+  kubectl logs "$GREEN_POD" --tail=20 || echo "Could not fetch logs for green pod."
+else
+  log "No green pods found."
+fi
+
+log "Current service configuration (traffic goes to version: blue by default):"
+kubectl get service messaging-app-service -o yaml | grep -A2 "selector:"
+
+log "To switch traffic to green, run:"
+log "  kubectl patch service messaging-app-service -p '{\"spec\":{\"selector\":{\"version\":\"green\"}}}'"
+
+log "Done."
