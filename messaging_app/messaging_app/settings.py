@@ -67,11 +67,13 @@ WSGI_APPLICATION = "messaging_app.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-if os.environ.get("MYSQL_DATABASE"):
+mysql_db_name = os.environ.get("MYSQL_DB") or os.environ.get("MYSQL_DATABASE")
+
+if mysql_db_name:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.mysql",
-            "NAME": os.environ.get("MYSQL_DATABASE"),
+            "NAME": mysql_db_name,
             "USER": os.environ.get("MYSQL_USER"),
             "PASSWORD": os.environ.get("MYSQL_PASSWORD"),
             "HOST": os.environ.get("MYSQL_HOST", "db"),

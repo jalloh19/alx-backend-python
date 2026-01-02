@@ -1,13 +1,14 @@
-version: "3.8"
-
 services:
   db:
     image: mysql:8.0
     environment:
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      # Variables required by the checker (.env should define these)
+      MYSQL_DB: ${MYSQL_DB}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      # Variable required by the MySQL image
+      MYSQL_DATABASE: ${MYSQL_DB}
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
@@ -26,10 +27,10 @@ services:
     ports:
       - "8000:8000"
     command: >
-      sh -c "until python -c 'import os; import MySQLdb; MySQLdb.connect(host=os.environ.get(\"MYSQL_HOST\", \"db\"), user=os.environ[\"MYSQL_USER\"], passwd=os.environ[\"MYSQL_PASSWORD\"], db=os.environ[\"MYSQL_DATABASE\"], port=int(os.environ.get(\"MYSQL_PORT\", \"3306\")));' 2>/dev/null;
+      sh -c "until python3 -c 'import os; import MySQLdb; MySQLdb.connect(host=os.environ.get(\"MYSQL_HOST\", \"db\"), user=os.environ[\"MYSQL_USER\"], passwd=os.environ[\"MYSQL_PASSWORD\"], db=os.environ.get(\"MYSQL_DB\") or os.environ.get(\"MYSQL_DATABASE\"), port=int(os.environ.get(\"MYSQL_PORT\", \"3306\")));' 2>/dev/null;
              do echo 'Waiting for MySQL...'; sleep 2; done;
-             python manage.py migrate &&
-             python manage.py runserver 0.0.0.0:8000"
+             python3 manage.py migrate &&
+             python3 manage.py runserver 0.0.0.0:8000"
 
 volumes:
   mysql_data:
