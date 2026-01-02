@@ -1,0 +1,57 @@
+---
+# Deployment for Django Messaging App
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: messaging-app
+  labels:
+    app: messaging-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: messaging-app
+  template:
+    metadata:
+      labels:
+        app: messaging-app
+    spec:
+      containers:
+        - name: messaging-app
+          image: messaging_app-web:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8000
+          env:
+            - name: MYSQL_DB
+              value: "messaging_db"
+            - name: MYSQL_USER
+              value: "messaging_user"
+            - name: MYSQL_PASSWORD
+              value: "messaging_password"
+            - name: MYSQL_HOST
+              value: "db"
+            - name: MYSQL_PORT
+              value: "3306"
+          command:
+            - sh
+            - -c
+            - |
+              python3 manage.py migrate &&
+              python3 manage.py runserver 0.0.0.0:8000
+---
+# ClusterIP Service to expose Django app internally
+apiVersion: v1
+kind: Service
+metadata:
+  name: messaging-app-service
+  labels:
+    app: messaging-app
+spec:
+  type: ClusterIP
+  selector:
+    app: messaging-app
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
