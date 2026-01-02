@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+log() {
+  printf "[kurbeScript] %s\n" "$*"
+}
+
+die() {
+  printf "[kurbeScript] ERROR: %s\n" "$*" >&2
+  exit 1
+}
+
+log "Checking prerequisites..."
+
+command -v minikube >/dev/null 2>&1 || die "minikube is not installed. Install minikube and re-run this script."
+command -v kubectl >/dev/null 2>&1 || die "kubectl is not installed. Install kubectl and re-run this script."
+
+log "Starting local Kubernetes cluster (minikube)..."
+
+# Prefer Docker driver when available; otherwise let minikube choose.
+if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+  minikube start --driver=docker
+else
+  minikube start
+fi
+
+log "Verifying cluster is running (kubectl cluster-info)..."
+kubectl cluster-info
+
+log "Retrieving available pods (all namespaces)..."
+kubectl get pods -A
