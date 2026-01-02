@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+log() {
+  printf "[kubctl-0x01] %s\n" "$*"
+}
+
+log "Scaling 'messaging-app' deployment to 3 replicas..."
+kubectl scale deployment messaging-app --replicas=3
+
+log "Waiting for replicas to be ready..."
+kubectl rollout status deployment/messaging-app
+
+log "Verifying pods (kubectl get pods)..."
+kubectl get pods -l app=messaging-app
+
+log "Setting up port-forwarding for load testing (background)..."
+# Forward local port 8000 to the service port 8000
+kubectl port-forward service/messaging-app-service 8000:8000 >/dev/null 2>&1 &
+PF_PID=$!
+# Give port-forward a moment to establish
+sleep 3
+
+log "Running load test with wrk (10s duration, 2 threads, 10 connections)..."
+if command -v wrk >/dev/null 2>&1; then
+  wrk -t2 -c10 -d10s http://localhost:8000/api/ || echo "wrk failed (is the app running?)"
+else
+  echo "WARNING: 'wrk' is not installed. Skipping load test."
+  echo "To install wrk: sudo apt install wrk (Ubuntu) or brew install wrk (Mac)"
+fi
+
+log "Cleaning up port-forward..."
+kill $PF_PID || true
+
+log "Monitoring resource usage (kubectl top pods)..."
+# Note: Metrics server must be enabled in minikube for this to work (minikube addons enable metrics-server)
+if kubectl top pods -l app=messaging-app >/dev/null 2>&1; then
+  kubectl top pods -l app=messaging-app
+else
+  echo "Metrics API not available. (Try: minikube addons enable metrics-server)"
+fi
+
+log "Done."
