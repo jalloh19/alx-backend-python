@@ -1,0 +1,19 @@
+---
+# Kubernetes Service for Blue-Green Deployment
+# Change the selector 'version' to switch traffic between blue and green
+apiVersion: v1
+kind: Service
+metadata:
+  name: messaging-app-service
+  labels:
+    app: messaging-app
+spec:
+  type: ClusterIP
+  selector:
+    app: messaging-app
+    # Switch between 'blue' and 'green' to route traffic
+    version: blue
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000

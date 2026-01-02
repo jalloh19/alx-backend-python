@@ -1,20 +1,23 @@
 ---
-# Deployment for Django Messaging App
+# Green Deployment for Django Messaging App (new version)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: messaging-app
+  name: messaging-app-green
   labels:
     app: messaging-app
+    version: green
 spec:
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       app: messaging-app
+      version: green
   template:
     metadata:
       labels:
         app: messaging-app
+        version: green
     spec:
       containers:
         - name: messaging-app
@@ -39,19 +42,3 @@ spec:
             - |
               python3 manage.py migrate &&
               python3 manage.py runserver 0.0.0.0:8000
----
-# ClusterIP Service to expose Django app internally
-apiVersion: v1
-kind: Service
-metadata:
-  name: messaging-app-service
-  labels:
-    app: messaging-app
-spec:
-  type: ClusterIP
-  selector:
-    app: messaging-app
-  ports:
-    - protocol: TCP
-      port: 8000
-      targetPort: 8000
