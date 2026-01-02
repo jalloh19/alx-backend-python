@@ -1,39 +1,32 @@
-FROM python:3.11-slim
+# Use Python 3.10 base image as specified in the exercise
+FROM python:3.10
 
 # Set environment variables
+# Prevents Python from writing pyc files to disc
 ENV PYTHONDONTWRITEBYTECODE=1
+# Prevents Python from buffering stdout and stderr
 ENV PYTHONUNBUFFERED=1
 
-# Set work directory
+# Set work directory inside the container
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    postgresql-client \
-    curl \
+# System dependencies (needed for mysqlclient)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    default-libmysqlclient-dev \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# Install Python dependencies from requirements.txt
 COPY requirements.txt .
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Copy project
+# Copy the Django app code into the container
 COPY . .
 
-# Create necessary directories
-RUN mkdir -p logs test-reports staticfiles media
-
-# Collect static files
-RUN python manage.py collectstatic --no-input || true
-
-# Expose port
+# Expose port 8000 (default Django port)
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8000/api/ || exit 1
-
-# Run migrations and start server
-CMD python manage.py migrate && \
-    gunicorn messaging_app.wsgi:application --bind 0.0.0.0:8000 --workers 3
+# Run migrations and start the Django development server
+CMD ["sh", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]

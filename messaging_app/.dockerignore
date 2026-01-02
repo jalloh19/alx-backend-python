@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.pyo
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Django / local dev artifacts
+*.sqlite3
+media/
+staticfiles/
+
+# Test / coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+junit.xml
+test-reports/
+
+# Logs
+*.log
+logs/
+
+# Editor/OS
+.vscode/
+.idea/
+.DS_Store
+
+# VCS
+.git/
+.gitignore
+
+# Environment files / secrets
+.env
+.env.*

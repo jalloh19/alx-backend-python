@@ -1,56 +1,35 @@
-version: '3.8'
+version: "3.8"
 
 services:
   db:
-    image: postgres:15
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+    image: mysql:8.0
     environment:
-      - POSTGRES_DB=messaging_db
-      - POSTGRES_USER=messaging_user
-      - POSTGRES_PASSWORD=secure_password_change_me
-    ports:
-      - "5432:5432"
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U messaging_user"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p$$MYSQL_ROOT_PASSWORD --silent"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
 
   web:
     build: .
-    command: >
-      sh -c "python manage.py migrate &&
-             python manage.py collectstatic --no-input &&
-             gunicorn messaging_app.wsgi:application --bind 0.0.0.0:8000 --workers 3 --reload"
-    volumes:
-      - .:/app
-      - static_volume:/app/staticfiles
-      - media_volume:/app/media
-    ports:
-      - "8000:8000"
-    environment:
-      - DEBUG=True
-      - DATABASE_URL=postgresql://messaging_user:secure_password_change_me@db:5432/messaging_db
-      - SECRET_KEY=your-secret-key-here-change-in-production
+    env_file:
+      - .env
     depends_on:
       db:
         condition: service_healthy
-    restart: unless-stopped
-
-  nginx:
-    image: nginx:alpine
-    volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
-      - static_volume:/app/staticfiles
-      - media_volume:/app/media
     ports:
-      - "80:80"
-    depends_on:
-      - web
-    restart: unless-stopped
+      - "8000:8000"
+    command: >
+      sh -c "until python -c 'import os; import MySQLdb; MySQLdb.connect(host=os.environ.get(\"MYSQL_HOST\", \"db\"), user=os.environ[\"MYSQL_USER\"], passwd=os.environ[\"MYSQL_PASSWORD\"], db=os.environ[\"MYSQL_DATABASE\"], port=int(os.environ.get(\"MYSQL_PORT\", \"3306\")));' 2>/dev/null;
+             do echo 'Waiting for MySQL...'; sleep 2; done;
+             python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
 
 volumes:
-  postgres_data:
-  static_volume:
-  media_volume:
+  mysql_data:

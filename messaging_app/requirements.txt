@@ -1,0 +1,15 @@
+# Django and REST Framework
+Django==5.2.4
+djangorestframework==3.16.0
+djangorestframework-simplejwt==5.5.0
+drf-nested-routers==0.94.1
+django-filter==25.1
+
+# Server
+gunicorn==23.0.0
+
+# Database (MySQL)
+mysqlclient==2.2.4
+
+# Utilities
+python-dotenv==1.1.0
