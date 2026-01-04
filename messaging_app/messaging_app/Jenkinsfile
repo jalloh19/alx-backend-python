@@ -1,0 +1,63 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Install Dependencies') {
+            steps {
+                dir('messaging_app') {
+                    sh '''
+                    python3 -m venv venv
+                    . venv/bin/activate
+                    pip install --upgrade pip
+                    pip install -r requirements.txt
+                    pip install pytest pytest-django
+                    '''
+                }
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                dir('messaging_app') {
+                    sh '''
+                    . venv/bin/activate
+                    pytest --ds=messaging_app.settings --junitxml=test-reports/results.xml
+                    '''
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                dir('messaging_app') {
+                    sh 'docker build -t my-docker-username/messaging-app:${BUILD_NUMBER} .'
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
+                        sh 'echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin'
+                        sh 'docker push my-docker-username/messaging-app:${BUILD_NUMBER}'
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            dir('messaging_app') {
+                junit 'test-reports/results.xml'
+            }
+        }
+    }
+}
